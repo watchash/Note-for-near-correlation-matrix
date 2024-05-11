@@ -1,0 +1,139 @@
+---
+title: "Nearest Correlation Matrix in R"
+author: "Ian Deng"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(magrittr)
+```
+
+### Introduction
+
+This document briefly describes how to use [sdpt3r](https://cran.r-project.org/web/packages/sdpt3r/index.html) package in R to construct a nearest correlation matrix of a given approximate correlation matrix for 
+sample size simulation.\
+
+A valid correlation matrix must conform the following properties:\
+
+-   **Diagonal elements all equal 1**\
+-   **Non-diagonal elements in the closed interval [-1, 1]**\
+-   **Symmetric**\
+-   **Positive semi-definite**\
+
+Generally, an empirical correlation matrix from previous studies can be used in simulation, but manual intervention to the matrix may also be performed for scenario analysis. In these cases, the fourth property may be hard to satisfy through visual inspection.\
+
+This problem occurs in several important areas of finance and risk management, and can be solved using standard non-linear optimization procedure. The *sdpt3r* package is a semi-definite quadratic linear programming solver in R, which incorporate a special function `nearcorr()` to deal with this problem.
+
+### Optimization framework in `nearcorr()`
+
+The solver tries to find the nearest valid correlation matrix to the input matrix. The Forbenius form is used as the error function for optimization process: the solution matrix will have the smallest sum of squares of element difference compared with the input matrix.
+
+### Example
+
+```{r library, message=F}
+library(sdpt3r)
+```
+
+```{r empirical data, include=F}
+
+empirical <- c(1, 0.549, 0.548, 0.825, 0.685, 0.546, 0.561, 0.687, 0.43, 0.554, 0.452, 0.508, 0.572, 0.646, 0.652, 0.556, 0.735, 0.662, 0.629, 0.762, 0.618, 0.549, 1, 0.56, 0.505, 0.507, 0.304, 0.647, 0.455, 0.477, 0.561, 0.339, 0.468, 0.462, 0.75, 0.588, 0.441, 0.524, 0.604, 0.44, 0.658, 0.555, 0.548, 0.56, 1, 0.41, 0.628, 0.413, 0.703, 0.618, 0.457, 0.631, 0.529, 0.636, 0.679, 0.661, 0.656, 0.488, 0.661, 0.646, 0.365, 0.513, 0.419, 0.825, 0.505, 0.41, 1, 0.582, 0.515, 0.534, 0.618, 0.29, 0.433, 0.371, 0.399, 0.427, 0.58, 0.544, 0.518, 0.581, 0.637, 0.693, 0.814, 0.639, 0.685, 0.507, 0.628, 0.582, 1, 0.662, 0.657, 0.717, 0.41, 0.602, 0.523, 0.655, 0.673, 0.58, 0.684, 0.538, 0.739, 0.632, 0.437, 0.6, 0.527, 0.546, 0.304, 0.413, 0.515, 0.662, 1, 0.543, 0.564, 0.386, 0.329, 0.59, 0.476, 0.517, 0.321, 0.553, 0.511, 0.691, 0.534, 0.403, 0.52, 0.572, 0.561, 0.647, 0.703, 0.534, 0.657, 0.543, 1, 0.556, 0.498, 0.521, 0.55, 0.546, 0.608, 0.685, 0.645, 0.512, 0.678, 0.694, 0.524, 0.724, 0.531, 0.687, 0.455, 0.618, 0.618, 0.717, 0.564, 0.556, 1, 0.384, 0.564, 0.502, 0.635, 0.586, 0.602, 0.644, 0.519, 0.731, 0.606, 0.413, 0.564, 0.564, 0.43, 0.477, 0.457, 0.29, 0.41, 0.386, 0.498, 0.384, 1, 0.272, 0.426, 0.433, 0.456, 0.446, 0.387, 0.23, 0.411, 0.459, 0.368, 0.413, 0.402, 0.554, 0.561, 0.631, 0.433, 0.602, 0.329, 0.521, 0.564, 0.272, 1, 0.311, 0.512, 0.551, 0.698, 0.61, 0.517, 0.557, 0.568, 0.455, 0.506, 0.425, 0.452, 0.339, 0.529, 0.371, 0.523, 0.59, 0.55, 0.502, 0.426, 0.311, 1, 0.476, 0.456, 0.405, 0.532, 0.353, 0.593, 0.406, 0.398, 0.473, 0.414, 0.508, 0.468, 0.636, 0.399, 0.655, 0.476, 0.546, 0.635, 0.433, 0.512, 0.476, 1, 0.61, 0.491, 0.47, 0.3, 0.65, 0.489, 0.326, 0.459, 0.467, 0.572, 0.462, 0.679, 0.427, 0.673, 0.517, 0.608, 0.586, 0.456, 0.551, 0.456, 0.61, 1, 0.508, 0.637, 0.45, 0.651, 0.666, 0.39, 0.517, 0.451, 0.646, 0.75, 0.661, 0.58, 0.58, 0.321, 0.685, 0.602, 0.446, 0.698, 0.405, 0.491, 0.508, 1, 0.688, 0.541, 0.629, 0.625, 0.55, 0.705, 0.568, 0.652, 0.588, 0.656, 0.544, 0.684, 0.553, 0.645, 0.644, 0.387, 0.61, 0.532, 0.47, 0.637, 0.688, 1, 0.533, 0.707, 0.673, 0.505, 0.657, 0.537, 0.556, 0.441, 0.488, 0.518, 0.538, 0.511, 0.512, 0.519, 0.23, 0.517, 0.353, 0.3, 0.45, 0.541, 0.533, 1, 0.57, 0.542, 0.402, 0.551, 0.586, 0.735, 0.524, 0.661, 0.581, 0.739, 0.691, 0.678, 0.731, 0.411, 0.557, 0.593, 0.65, 0.651, 0.629, 0.707, 0.57, 1, 0.648, 0.502, 0.645, 0.561, 0.662, 0.604, 0.646, 0.637, 0.632, 0.534, 0.694, 0.606, 0.459, 0.568, 0.406, 0.489, 0.666, 0.625, 0.673, 0.542, 0.648, 1, 0.589, 0.699, 0.612, 0.629, 0.44, 0.365, 0.693, 0.437, 0.403, 0.524, 0.413, 0.368, 0.455, 0.398, 0.326, 0.39, 0.55, 0.505, 0.402, 0.502, 0.589, 1, 0.716, 0.472, 0.762, 0.658, 0.513, 0.814, 0.6, 0.52, 0.724, 0.564, 0.413, 0.506, 0.473, 0.459, 0.517, 0.705, 0.657, 0.551, 0.645, 0.699, 0.716, 1, 0.609, 0.618, 0.555, 0.419, 0.639, 0.527, 0.572, 0.531, 0.564, 0.402, 0.425, 0.414, 0.467, 0.451, 0.568, 0.537, 0.586, 0.561, 0.612, 0.472, 0.609, 1)
+
+empirical <- round(empirical,2)
+dim(empirical) <- c(21,21)
+colnames(empirical) <- paste(rep("S",21),c(1:21),sep = "")
+rownames(empirical) <- paste(rep("S",21),c(1:21),sep = "")
+
+```
+
+Here is an empirical correlation matrix generated from historical data. The Vx consists of 21 serotypes, resulting in a 21x21 correlation matrix. The matrix is stored in a R object called `empirical`.\
+
+```{r empirical display, echo=F}
+print(empirical)
+```
+
+
+
+We may want to make some adjustment to the empirical matrix to perform different scenario analysis. For example, we want to decrease the correlation between serotypes to represent a conservative scenario.\
+
+- For correlation coefficients >= 0.6, we would make them equal to 0.6\
+- For correlation coefficients between 0.3 and 0.6, we would make them equal to 0.3\
+
+```{r matrix_adjustment, eval=T, echo=F}
+scenario <- empirical
+scenario[scenario>=0.6] <- 0.6
+scenario[scenario>=0.3 & scenario<0.6] <- 0.3
+diag(scenario) <- 1
+```
+
+The target adjusted matrix is stored in `scenario` as shown below:\
+
+```{r scenario display, echo=F}
+print(scenario)
+```
+
+
+
+Generally, `eigen()` function from base R can be used to check if the adjusted matrix is positive semi-definite, which is equivalent to say that all eigenvalues are non-negative.
+
+```{r eigen}
+eigen(scenario,only.values = T)$values
+```
+
+The result shows that the new matrix has two negative eigenvalues, thus it is not positive semi-definite and can not be considered a valid correlation matrix.\
+
+To get the nearest correlation matrix, simply use `nearcorr()` function. The calculation may take some time if the number of serotypes are large.
+
+```{r nearest correlation}
+new_correlation <- sdpt3r::nearcorr(scenario)
+```
+
+The output of this function is a list project, you can get the matrix and the error value in `$X[[1]]` and `$pobj` elements, respectively.
+
+```{r matrix result, eval=F}
+new_correlation$X[[1]]
+```
+
+```{r matrix result display, echo=F}
+print(new_correlation$X[[1]])
+```
+
+
+
+
+```{r error result}
+new_correlation$pobj
+
+#The error term to be minimized is the Forbenius norm (type="F") of the subtraction of two matrices
+norm(scenario - new_correlation$X[[1]],"F")
+```
+
+We can see that the summation of squared changes in all `r nrow(scenario)*(nrow(scenario)-1)` non-diagonal elements is `new_correlation$pobj` = `r new_correlation$pobj`, which may seem acceptable to approximate our target correlation matrix.\
+
+The maximum absolute change for a single matrix element is `r max(abs(scenario - new_correlation$X[[1]]))`, the value might increase for large matrices, and the Stats can decide if it's acceptable to use the resulting matrix as a valid approximation for scenario analysis.
+
+Before exporting the result, please note that the diagonal elements in the matrix do not exactly equal 1, we may round them to certain number of decimal places and re-check if the matrix is positive semi-definite.\
+
+Here we round the result to 7 decimal places, which should have adequate precision.
+
+```{r round and check}
+output_matrix <- new_correlation$X[[1]]
+output_matrix <- round(output_matrix,7)
+eigen(output_matrix,only.values = T)$value
+```
+
+The eigenvalues are all non-negative. We are fine to export the result.\
+
+A convenient approach is to write the result to system clipboard and directly paste it to SAS file. The `write_clip()` function from *clipr* package will be helpful. Here we add a new column of "CORR" for convenience. 
+
+```{r output, eval=F}
+clipr::write_clip(cbind("CORR",as.data.frame(as.matrix(output_matrix))))
+```
+
+Just delete the header row, and the data should fit the datalines statement in SAS data step.\
+
+![](insert.PNG)
+
+
+
