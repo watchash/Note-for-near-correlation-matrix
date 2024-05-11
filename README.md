@@ -226,5 +226,3 @@ clipr::write_clip(cbind("CORR",as.data.frame(as.matrix(output_matrix))))
 
 Just delete the header row, and the data should fit the datalines
 statement in SAS data step.  
-
-![](insert.PNG)
